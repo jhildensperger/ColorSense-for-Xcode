@@ -9,6 +9,7 @@
 #import "OMColorHelper.h"
 #import "OMPlainColorWell.h"
 #import "OMColorFrameView.h"
+#import <objc/runtime.h>
 
 #define kOMColorHelperHighlightingDisabled	@"OMColorHelperHighlightingDisabled"
 #define kOMColorHelperInsertionMode			@"OMColorHelperInsertionMode"
@@ -28,7 +29,7 @@
 	});
 }
 
-- (id)init
+- (instancetype)init
 {
 	if (self = [super init]) {
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidFinishLaunching:) name:NSApplicationDidFinishLaunchingNotification object:nil];
@@ -55,8 +56,52 @@
 		_rgbaNSColorRegex = [NSRegularExpression regularExpressionWithPattern:@"\\[\\s*NSColor\\s+colorWith(Calibrated|Device)Red:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s+green:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s+blue:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s+alpha:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s*\\]" options:0 error:NULL];
 		_whiteNSColorRegex = [NSRegularExpression regularExpressionWithPattern:@"\\[\\s*NSColor\\s+colorWith(Calibrated|Device)White:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s+alpha:\\s*([0-9]*\\.?[0-9]*f?)\\s*(\\/\\s*[0-9]*\\.?[0-9]*f?)?\\s*\\]" options:0 error:NULL];
 		_constantColorRegex = [NSRegularExpression regularExpressionWithPattern:@"\\[\\s*(UI|NS)Color\\s+(black|darkGray|lightGray|white|gray|red|green|blue|cyan|yellow|magenta|orange|purple|brown|clear)Color\\s*\\]" options:0 error:NULL];
+        
+        [self addColors];
 	}
 	return self;
+}
+
+//- (void)addPayloadItems {
+//    [self.jsonItems enumerateObjectsUsingBlock:^(NSMenuItem *item, NSUInteger idx, BOOL *stop) {
+//        [self.notificationsMenu.submenu removeItem:item];
+//    }];
+//    
+//    [self.payloadPaths enumerateObjectsUsingBlock:^(NSURL *jsonFileURL, NSUInteger idx, BOOL *stop) {
+//        NSString *fileName = [[jsonFileURL lastPathComponent] stringByDeletingPathExtension];
+//        NSString *title = [fileName stringByReplacingOccurrencesOfString:@".json" withString:@""];
+//        title = [title stringByReplacingOccurrencesOfString:@"_" withString:@" "];
+//        NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:title.capitalizedString action:@selector(setItemSelected:) keyEquivalent:@""];
+//        menuItem.target = self;
+//        menuItem.representedObject = jsonFileURL;
+//        [self.notificationsMenu.submenu addItem:menuItem];
+//    }];
+//    
+//    if (!self.selectedItem) {
+//        self.selectedItem = self.jsonItems[0];
+//    }
+//}
+//
+//- (void)addPayloadFiles {
+//    NSOpenPanel *panel = [NSOpenPanel openPanel];
+//    [panel setAllowsMultipleSelection:YES];
+//    [panel setTitle:@"Select JSON files for Remote Notification Payloads"];
+//    [panel beginWithCompletionHandler:^(NSInteger result) {
+//        if (NSFileHandlingPanelOKButton == result) {
+//            if (!self.payloadPaths.count) {
+//                [self addSendAndSelectItems];
+//            }
+//            NSSet *uniqueSet = [NSSet setWithArray:[self.payloadPaths arrayByAddingObjectsFromArray:panel.URLs]];
+//            self.payloadPaths = uniqueSet.allObjects;
+//            [self addPayloadItems];
+//        }
+//    }];
+//}
+
+- (void)addColors {
+    _customColorsByName = [@{@"trGreen" : [NSColor colorWithRed:0.272 green:0.591 blue:0.391 alpha:1.000]} mutableCopy];
+    NSString *regexPattern = [NSString stringWithFormat:@"\\[\\s*(UI|NS)Color\\s+(%@)\\s*\\]", [[_customColorsByName allKeys] componentsJoinedByString:@"|"]];
+    _customColorRegex = [NSRegularExpression regularExpressionWithPattern:regexPattern options:0 error:NULL];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -84,6 +129,10 @@
 		NSMenuItem *insertColorMenuItem = [[NSMenuItem alloc] initWithTitle:@"Insert Color..." action:@selector(insertColor:) keyEquivalent:@""];
 		[insertColorMenuItem setTarget:self];
 		[[editMenuItem submenu] addItem:insertColorMenuItem];
+        
+        NSMenuItem *addColorMenuItem = [[NSMenuItem alloc] initWithTitle:@"Add Colors" action:@selector(addColors) keyEquivalent:@""];
+        [addColorMenuItem setTarget:self];
+        [[editMenuItem submenu] addItem:addColorMenuItem];
 	}
 	
 	BOOL highlightingEnabled = ![[NSUserDefaults standardUserDefaults] boolForKey:kOMColorHelperHighlightingDisabled];
@@ -201,7 +250,7 @@
 		
 		NSArray *selectedRanges = [self.textView selectedRanges];
 		if (selectedRanges.count >= 1) {
-			NSRange selectedRange = [[selectedRanges objectAtIndex:0] rangeValue];
+			NSRange selectedRange = [selectedRanges[0] rangeValue];
 			NSString *text = self.textView.textStorage.string;
 			NSRange lineRange = [text lineRangeForRange:selectedRange];
 			NSRange selectedRangeInLine = NSMakeRange(selectedRange.location - lineRange.location, selectedRange.length);
@@ -356,7 +405,7 @@
 			if (selectedRange.location >= colorRange.location && NSMaxRange(selectedRange) <= NSMaxRange(colorRange)) {
 				NSString *NS_UI = [text substringWithRange:[result rangeAtIndex:1]];
 				NSString *colorName = [text substringWithRange:[result rangeAtIndex:2]];
-				foundColor = [_constantColorsByName objectForKey:colorName];
+				foundColor = _constantColorsByName[colorName];
 				foundColorRange = colorRange;
 				if ([NS_UI isEqualToString:@"UI"]) {
 					foundColorType = OMColorTypeUIConstant;
@@ -367,6 +416,25 @@
 			}
 		}];
 	}
+    
+//    TODO fix
+    if (!foundColor) {
+        [_customColorRegex enumerateMatchesInString:text options:0 range:NSMakeRange(0, text.length) usingBlock:^(NSTextCheckingResult *result, NSMatchingFlags flags, BOOL *stop) {
+            NSRange colorRange = [result range];
+            if (selectedRange.location >= colorRange.location && NSMaxRange(selectedRange) <= NSMaxRange(colorRange)) {
+                NSString *NS_UI = [text substringWithRange:[result rangeAtIndex:1]];
+                NSString *colorName = [text substringWithRange:[result rangeAtIndex:2]];
+                foundColor = _customColorsByName[colorName];
+                foundColorRange = colorRange;
+                if ([NS_UI isEqualToString:@"UI"]) {
+                    foundColorType = OMColorTypeUICustom;
+                } else {
+                    foundColorType = OMColorTypeUICustom;
+                }
+                *stop = YES;
+            }
+        }];
+    }
 	
 	if (!foundColor) {
 		[_rgbaNSColorRegex enumerateMatchesInString:text options:0 range:NSMakeRange(0, text.length) usingBlock:^(NSTextCheckingResult *result, NSMatchingFlags flags, BOOL *stop) {
@@ -458,7 +526,7 @@
 		
 	if (red >= 0) {
 		for (NSString *colorName in _constantColorsByName) {
-			NSColor *constantColor = [_constantColorsByName objectForKey:colorName];
+			NSColor *constantColor = _constantColorsByName[colorName];
 			if ([constantColor isEqual:color]) {
 				if (OMColorTypeIsNSColor(colorType)) {
 					colorString = [NSString stringWithFormat:@"[NSColor %@Color]", colorName];
@@ -468,6 +536,17 @@
 				break;
 			}
 		}
+        for (NSString *colorName in _customColorsByName) {
+            NSColor *constantColor = _customColorsByName[colorName];
+            if ([constantColor isEqual:color]) {
+                if (OMColorTypeIsNSColor(colorType)) {
+                    colorString = [NSString stringWithFormat:@"[NSColor %@Color]", colorName];
+                } else {
+                    colorString = [NSString stringWithFormat:@"[UIColor %@Color]", colorName];
+                }
+                break;
+            }
+        }
 		if (!colorString) {
 			if (fabs(red - green) < 0.001 && fabs(green - blue) < 0.001) {
 				if (colorType == OMColorTypeUIRGBA || colorType == OMColorTypeUIWhite || colorType == OMColorTypeUIConstant) {
