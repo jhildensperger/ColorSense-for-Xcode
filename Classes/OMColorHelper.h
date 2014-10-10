@@ -14,6 +14,8 @@ typedef enum OMColorType {
 	
 	OMColorTypeUIRGBA,				//[UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:1.0]
 	OMColorTypeUIRGBAInit,			//[[UIColor alloc] initWithRed:1.0 green:0.0 blue:0.0 alpha:1.0]
+    OMColorTypeSwiftUIRGBAInit,     //UIColor (red:1.0, green:0.0, blue:0.0, alpha:1.0)
+    OMColorTypeSwiftUIConstant,     //UIColor.redColor()
 	OMColorTypeUIWhite,				//[UIColor colorWithWhite:0.5 alpha:1.0]
 	OMColorTypeUIWhiteInit,			//[[UIColor alloc] initWithWhite:0.5 alpha:1.0]
 	OMColorTypeUIConstant,			//[UIColor redColor]
