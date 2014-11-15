@@ -14,7 +14,18 @@
 #define kOMColorHelperHighlightingDisabled	@"OMColorHelperHighlightingDisabled"
 #define kOMColorHelperInsertionMode			@"OMColorHelperInsertionMode"
 
-@implementation OMColorHelper
+@interface OMColorHelper ()
+
+@property (nonatomic) NSDictionary *colorsDictionary;
+
+@end
+
+@implementation OMColorHelper {
+//    NSColorWell *colorWell;
+//    NSWindow *inputWindow;
+//    NSTextField *textField;
+//    NSButton *
+}
 
 @synthesize colorWell=_colorWell, colorFrameView=_colorFrameView, textView=_textView, selectedColorRange=_selectedColorRange, selectedColorType=_selectedColorType;
 
@@ -29,8 +40,7 @@
 	});
 }
 
-- (instancetype)init
-{
+- (instancetype)init {
 	if (self = [super init]) {
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationDidFinishLaunching:) name:NSApplicationDidFinishLaunchingNotification object:nil];
 		_selectedColorRange = NSMakeRange(NSNotFound, 0);
@@ -62,53 +72,56 @@
         
         NSString *colorNames = [[_constantColorsByName allKeys] componentsJoinedByString:@"|"];
 		_constantColorRegex = [NSRegularExpression regularExpressionWithPattern:[NSString stringWithFormat:@"\\[?(UI|NS)Color[\\s\\.]+(%@)Color[\\]\\(]\\)?", colorNames] options:0 error:NULL];
-        
-        [self addColors];
 	}
 	return self;
 }
 
-//- (void)addPayloadItems {
-//    [self.jsonItems enumerateObjectsUsingBlock:^(NSMenuItem *item, NSUInteger idx, BOOL *stop) {
-//        [self.notificationsMenu.submenu removeItem:item];
-//    }];
-//    
-//    [self.payloadPaths enumerateObjectsUsingBlock:^(NSURL *jsonFileURL, NSUInteger idx, BOOL *stop) {
-//        NSString *fileName = [[jsonFileURL lastPathComponent] stringByDeletingPathExtension];
-//        NSString *title = [fileName stringByReplacingOccurrencesOfString:@".json" withString:@""];
-//        title = [title stringByReplacingOccurrencesOfString:@"_" withString:@" "];
-//        NSMenuItem *menuItem = [[NSMenuItem alloc] initWithTitle:title.capitalizedString action:@selector(setItemSelected:) keyEquivalent:@""];
-//        menuItem.target = self;
-//        menuItem.representedObject = jsonFileURL;
-//        [self.notificationsMenu.submenu addItem:menuItem];
-//    }];
-//    
-//    if (!self.selectedItem) {
-//        self.selectedItem = self.jsonItems[0];
-//    }
-//}
-//
-//- (void)addPayloadFiles {
-//    NSOpenPanel *panel = [NSOpenPanel openPanel];
-//    [panel setAllowsMultipleSelection:YES];
-//    [panel setTitle:@"Select JSON files for Remote Notification Payloads"];
-//    [panel beginWithCompletionHandler:^(NSInteger result) {
-//        if (NSFileHandlingPanelOKButton == result) {
-//            if (!self.payloadPaths.count) {
-//                [self addSendAndSelectItems];
-//            }
-//            NSSet *uniqueSet = [NSSet setWithArray:[self.payloadPaths arrayByAddingObjectsFromArray:panel.URLs]];
-//            self.payloadPaths = uniqueSet.allObjects;
-//            [self addPayloadItems];
-//        }
-//    }];
-//}
-
 - (void)addColors {
-//     [UIColor trGreen]
-    _customColorsByName = [@{@"trGreen" : [NSColor colorWithRed:0.272 green:0.591 blue:0.391 alpha:1.000]} mutableCopy];
-    NSString *regexPattern = [NSString stringWithFormat:@"\\[\\s*(UI|NS)Color\\s+(%@)\\s*\\]", [[_customColorsByName allKeys] componentsJoinedByString:@"|"]];
-    _customColorRegex = [NSRegularExpression regularExpressionWithPattern:regexPattern options:0 error:NULL];
+    NSOpenPanel *panel = [NSOpenPanel openPanel];
+    [panel setTitle:@"Select Color map JSON"];
+    [panel beginWithCompletionHandler:^(NSInteger result) {
+        if (NSFileHandlingPanelOKButton == result) {
+            NSData *data = [NSData dataWithContentsOfURL:panel.URL];
+            NSError *error;
+            NSDictionary *colorMap = [NSJSONSerialization JSONObjectWithData:data options:0 error:&error];
+
+            [colorMap enumerateKeysAndObjectsUsingBlock:^(NSString *colorName, NSDictionary *rgbaInfo, BOOL *stop) {
+                [self addColorNamed:colorName
+                                red:[rgbaInfo[@"red"] floatValue]
+                              green:[rgbaInfo[@"green"] floatValue]
+                               blue:[rgbaInfo[@"blue"] floatValue]
+                              alpha:[rgbaInfo[@"alpha"] floatValue]];
+                
+            }];
+        }
+    }];
+}
+
+- (void)addColor {
+    NSView *inputView = [[NSView alloc] initWithFrame:NSMakeRect(0, 0, 200, 62)];
+    
+    NSColorWell *colorWell = [[NSColorWell alloc] initWithFrame:NSMakeRect(15, 15, 60, 32)];
+    [inputView addSubview:colorWell];
+    
+    NSTextField *textField = [[NSTextField alloc] initWithFrame:NSMakeRect(90, 15, 95, 26)];
+    [inputView addSubview:textField];
+
+    NSAlert *alert = [NSAlert alertWithMessageText:@"Add color" defaultButton:@"Add" alternateButton:@"Cancel" otherButton:nil informativeTextWithFormat:@"more info..."];
+    alert.accessoryView = inputView;
+    
+    [alert runModal];
+}
+
+- (void)addColorNamed:(NSString *)name red:(float)red green:(float)green blue:(float)blue alpha:(float)alpha {
+    if (!_customColorsByName) {
+        _customColorsByName = [NSMutableDictionary dictionary];
+    }
+    _customColorsByName[name] = [NSColor colorWithDeviceRed:red green:green blue:blue alpha:alpha];
+    
+    if (!_customColorRegex) {
+        NSString *regexPattern = [NSString stringWithFormat:@"\\[\\s*(UI|NS)Color\\s+(%@)\\s*\\]", [[_customColorsByName allKeys] componentsJoinedByString:@"|"]];
+        _customColorRegex = [NSRegularExpression regularExpressionWithPattern:regexPattern options:0 error:NULL];
+    }
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)notification
@@ -136,6 +149,10 @@
 		NSMenuItem *insertColorMenuItem = [[NSMenuItem alloc] initWithTitle:@"Insert Color..." action:@selector(insertColor:) keyEquivalent:@""];
 		[insertColorMenuItem setTarget:self];
 		[[editMenuItem submenu] addItem:insertColorMenuItem];
+        
+        NSMenuItem *addColorNewMenuItem = [[NSMenuItem alloc] initWithTitle:@"Add Color" action:@selector(addColor) keyEquivalent:@""];
+        [addColorNewMenuItem setTarget:self];
+        [[editMenuItem submenu] addItem:addColorNewMenuItem];
         
         NSMenuItem *addColorMenuItem = [[NSMenuItem alloc] initWithTitle:@"Add Colors" action:@selector(addColors) keyEquivalent:@""];
         [addColorMenuItem setTarget:self];

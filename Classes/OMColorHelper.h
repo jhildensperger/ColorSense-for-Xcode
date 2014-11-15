@@ -35,7 +35,7 @@ BOOL OMColorTypeIsNSColor(OMColorType colorType) { return colorType >= OMColorTy
 
 @class OMColorFrameView, OMPlainColorWell;
 
-@interface OMColorHelper : NSObject {
+@interface OMColorHelper : NSObject <NSWindowDelegate> {
 	
 	OMPlainColorWell *_colorWell;
 	OMColorFrameView *_colorFrameView;
